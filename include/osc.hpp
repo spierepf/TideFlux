@@ -18,6 +18,7 @@ namespace osc
 
   protected:
     void reportValue(float value);
+    void reportValue(bool value);
     const char *name;
 
   private:
@@ -37,6 +38,23 @@ namespace osc
     int gpio;
     float deadBand;
     float lastReportedValue = -1.0;
+  };
+
+  class TouchOSCInput : public OSCInput
+  {
+  public:
+    TouchOSCInput(const char *name, int touchGPIO, int indicatorGPIO);
+    virtual ~TouchOSCInput() = default;
+
+    virtual void setup();
+    virtual void loop();
+
+  private:
+    int touchGPIO;
+    int indicatorGPIO;
+    touch_value_t maxReading, minReading;
+    bool hasReported = false;
+    bool lastReportedValue;
   };
 
   void setup();
