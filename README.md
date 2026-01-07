@@ -14,6 +14,16 @@ WIFI_PSK = \"my_psk\"
 
 You can then use PlatformIO to build the project and install it onto your ESP32.
 
+## Hardware
+
+This is a basic circuit for wiring a single potentiometer (10Kohm recommended) to an ESP32.
+
+<img width="587" height="787" alt="hardware" src="https://github.com/user-attachments/assets/5d2243a5-cd10-463e-8bbc-ee79ab491509" />
+
+Ensure that the ESP32 is not connected to your computer while assembling or altering the circuit. Also, be sure to use the 3.3V rail (and not the 5V) to avoid overvolting the ESP32's gpios (which can only handle 3.3V).
+
+This circuit will provide a voltage to GPIO32 that varies according to the position of the potentiometer. This voltage will in turn be translated into a floating point value between 0.0 and 1.0 (inclusive) and that value will be broadcase via UDP on port 6060 using the OSC protocol.
+
 ## Contributing
 
 Pull requests are welcome. For major changes, please open an issue first
