@@ -20,9 +20,6 @@ namespace osc
     void reportValue(float value);
     void reportValue(bool value);
     const char *name;
-
-  private:
-    OSCMessage msg;
   };
 
   class AnalogOSCInput : public OSCInput
@@ -37,7 +34,7 @@ namespace osc
   private:
     int gpio;
     float deadBand;
-    float lastReportedValue = -1.0;
+    float lastReportedValue = NAN;
   };
 
   class TouchOSCInput : public OSCInput

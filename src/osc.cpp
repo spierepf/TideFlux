@@ -1,6 +1,7 @@
 #include <osc.hpp>
 
 #include <OSCMessage.h>
+#include <WiFi.h>
 #include <WiFiUdp.h>
 
 #ifndef TIDAL_OSC_UDP_PORT
@@ -9,16 +10,20 @@
 
 namespace osc
 {
-  WiFiUDP udp;
-  const IPAddress broadcastIP(255, 255, 255, 255);
+  const int ANALOG_RESOLUTION = 12;
+  constexpr float ADC_MAX = (1 << ANALOG_RESOLUTION) - 1;
 
-  OSCInput::OSCInput(const char *name) : msg("/ctrl"), name(name) {}
+  WiFiUDP udp;
+  IPAddress broadcastIP;
+
+  OSCInput::OSCInput(const char *name) : name(name) {}
 
   void OSCInput::reportValue(float value)
   {
     Serial.printf("[OSC] Updating '%s' to %f\n", name, value);
     udp.beginPacket(broadcastIP, TIDAL_OSC_UDP_PORT);
-    msg.empty().add(name).add(value).send(udp);
+    OSCMessage msg("/ctrl");
+    msg.add(name).add(value).send(udp);
     udp.endPacket();
   }
 
@@ -26,7 +31,8 @@ namespace osc
   {
     Serial.printf("[OSC] Updating '%s' to %s\n", name, value ? "true" : "false");
     udp.beginPacket(broadcastIP, TIDAL_OSC_UDP_PORT);
-    msg.empty().add(name).add(value).send(udp);
+    OSCMessage msg("/ctrl");
+    msg.add(name).add(value).send(udp);
     udp.endPacket();
   }
 
@@ -40,9 +46,11 @@ namespace osc
 
   void AnalogOSCInput::loop()
   {
-    float currentValue = analogRead(gpio) / 4095.0;
+    float currentValue = analogRead(gpio) / ADC_MAX;
 
-    if (abs(currentValue - lastReportedValue) > deadBand || ((currentValue == 0.0 || currentValue == 1.0) && currentValue != lastReportedValue))
+    if (fabs(currentValue - lastReportedValue) > deadBand
+      || ((currentValue <= 0.0 || currentValue >= 1.0) && currentValue != lastReportedValue)
+      || std::isnan(lastReportedValue))
     {
       reportValue(currentValue);
       lastReportedValue = currentValue;
@@ -62,8 +70,10 @@ namespace osc
   void TouchOSCInput::loop()
   {
     touch_value_t reading = touchRead(touchGPIO);
-    maxReading = std::max(reading, maxReading);
-    minReading = std::min(reading, minReading);
+
+    touch_value_t decay = (maxReading - minReading) >> 5;
+    maxReading = std::max(reading, (touch_value_t)(maxReading - decay));
+    minReading = std::min(reading, (touch_value_t)(minReading + decay));
 
     if ((maxReading - minReading) > (maxReading >> 2))
     {
@@ -78,27 +88,38 @@ namespace osc
     }
   }
 
-  template <typename T, typename... Ptrs>
-  std::vector<std::unique_ptr<T>> make_vector(Ptrs &&...ptrs)
-  {
-    std::vector<std::unique_ptr<T>> vec;
-    (vec.emplace_back(std::forward<Ptrs>(ptrs)), ...);
-    return vec;
-  }
-
-  std::vector<std::unique_ptr<OSCInput>> inputs = make_vector<OSCInput>(
-      std::unique_ptr<OSCInput>(new AnalogOSCInput("slider", 32)),
-      std::unique_ptr<OSCInput>(new TouchOSCInput("touch", 4, 21)));
-
+  bool wifiConnected = false;
+  std::vector<std::unique_ptr<OSCInput>> inputs;
   void setup()
   {
+    inputs.emplace_back(std::unique_ptr<OSCInput>(new AnalogOSCInput("slider", 32)));
+    inputs.emplace_back(std::unique_ptr<OSCInput>(new TouchOSCInput("touch", 4, 21)));
+
+    analogReadResolution(ANALOG_RESOLUTION);
+
     for (auto &input : inputs)
       input->setup();
   }
 
   void loop()
   {
-    for (auto &input : inputs)
-      input->loop();
+    if (!wifiConnected && WiFi.status() == WL_CONNECTED)
+    {
+      wifiConnected = true;
+      broadcastIP = WiFi.localIP();
+      broadcastIP[3] = 255;
+      udp.begin(0);
+    }
+
+    if (wifiConnected && WiFi.status() != WL_CONNECTED)
+    {
+      wifiConnected = false;
+    }
+
+    if (wifiConnected)
+    {
+      for (auto &input : inputs)
+        input->loop();
+    }
   }
 }
