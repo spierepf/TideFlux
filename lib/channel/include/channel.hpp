@@ -32,4 +32,18 @@ namespace channel
     Source<T> &source;
     Sink<T> &sink;
   };
+
+  class Deadband : public Sink<float>
+  {
+  public:
+    Deadband(Sink<float> &dest, float min = -std::numeric_limits<float>::max(), float max = std::numeric_limits<float>::max(), float radius = 0.0);
+    virtual void recv(float value) override;
+
+  private:
+    float lastReportedValue = NAN;
+    float min;
+    float max;
+    float radius;
+    Sink<float> &dest;
+  };
 }
