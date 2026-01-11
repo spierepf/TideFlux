@@ -8,8 +8,8 @@ You will need to create a `secret.ini` file in the root folder of this project w
 
 ```ini
 [secret]
-WIFI_SSID = \"my_ssid\"
-WIFI_PSK = \"my_psk\"
+WIFI_SSID = my_ssid
+WIFI_PSK = my_psk
 ```
 
 You can then use PlatformIO to build the project and install it onto your ESP32.
